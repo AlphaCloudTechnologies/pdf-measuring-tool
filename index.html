@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Measuring Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f6f8fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0f3f6;
+            --accent-primary: #0969da;
+            --accent-secondary: #218bff;
+            --accent-glow: rgba(9, 105, 218, 0.2);
+            --text-primary: #1f2328;
+            --text-secondary: #656d76;
+            --text-muted: #8c959f;
+            --border-color: #d1d9e0;
+            --success: #1a7f37;
+            --danger: #cf222e;
+            --info: #0969da;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 13px;
+            background-image: 
+                radial-gradient(ellipse at 20% 0%, rgba(240, 136, 62, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 100%, rgba(88, 166, 255, 0.06) 0%, transparent 50%);
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            padding: 0.4rem 0.75rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 0.5rem;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .toolbar .divider {
+            width: 1px;
+            height: 20px;
+            background: var(--border-color);
+            margin: 0 0.25rem;
+        }
+
+        .upload-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .upload-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0 0.25rem;
+        }
+
+        .calibration-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .calibration-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-tertiary);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .calibration-toolbar.highlight-error {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 2px rgba(248, 81, 73, 0.3);
+        }
+
+        .calibration-hint {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0 0.25rem;
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--danger);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(248, 81, 73, 0.4);
+            animation: toastIn 0.3s ease;
+        }
+
+        @keyframes toastIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .toolbar-input {
+            width: 60px;
+            padding: 0.25rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .toolbar-input:focus {
+            outline: none;
+            border-color: var(--info);
+        }
+
+        .toolbar-select {
+            padding: 0.25rem 0.3rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .toolbar-select:focus {
+            outline: none;
+            border-color: var(--info);
+        }
+
+        .btn-apply {
+            background: var(--success);
+            border: none;
+            color: var(--bg-primary);
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .btn-apply:hover {
+            background: #4cc65a;
+        }
+
+        .btn-cancel {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .btn-cancel:hover {
+            background: rgba(248, 81, 73, 0.1);
+        }
+
+        .btn-download {
+            background: var(--info);
+            border: none;
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        .btn-download:hover:not(:disabled) {
+            background: #79c0ff;
+        }
+
+        .btn-download:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .calibration-ratio {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--success);
+            padding: 0.2rem 0.4rem;
+            background: rgba(63, 185, 80, 0.15);
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .calibration-ratio:empty {
+            display: none;
+        }
+
+        .btn {
+            font-family: 'Outfit', sans-serif;
+            padding: 0.35rem 0.75rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+        }
+
+        .btn:hover {
+            background: var(--border-color);
+            border-color: var(--text-muted);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 2px 12px var(--accent-glow);
+        }
+
+        .btn-calibrate {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--info);
+            color: var(--info);
+        }
+
+        .btn-calibrate:hover {
+            background: rgba(88, 166, 255, 0.1);
+        }
+
+        .btn-calibrate.active {
+            background: var(--info);
+            color: var(--bg-primary);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            padding: 0.75rem;
+            gap: 0.75rem;
+            min-height: 0;
+        }
+
+        .pdf-area {
+            flex: 1;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .pdf-viewport {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+            min-height: 0;
+            padding: 1rem;
+            text-align: center;
+            background: 
+                linear-gradient(45deg, var(--bg-tertiary) 25%, transparent 25%),
+                linear-gradient(-45deg, var(--bg-tertiary) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, var(--bg-tertiary) 75%),
+                linear-gradient(-45deg, transparent 75%, var(--bg-tertiary) 75%);
+            background-size: 16px 16px;
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        }
+
+        .canvas-container {
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            margin: auto;
+            display: inline-block;
+        }
+
+        #pdfCanvas {
+            display: block;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+
+        .magnifier-panel.hidden {
+            display: none;
+        }
+
+        .page-dimensions {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .page-dimensions .dim-label {
+            display: block;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .page-dimensions .dim-value {
+            display: block;
+            color: var(--text-secondary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .magnifier {
+            position: relative;
+            width: 100%;
+            max-width: 180px;
+            aspect-ratio: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin: 0 auto;
+            overflow: hidden;
+            background: var(--bg-primary);
+        }
+
+        #magnifierCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .magnifier-crosshair {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .magnifier-crosshair::before,
+        .magnifier-crosshair::after {
+            content: '';
+            position: absolute;
+            background: var(--accent-primary);
+            opacity: 0.6;
+            transition: opacity 0.1s ease;
+        }
+
+        .magnifier-crosshair::before {
+            width: 1px;
+            height: 30px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .magnifier-crosshair::after {
+            width: 30px;
+            height: 1px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .magnifier.clicking .magnifier-crosshair::before,
+        .magnifier.clicking .magnifier-crosshair::after {
+            opacity: 0.15;
+        }
+
+        .upload-prompt {
+            text-align: center;
+            padding: 2rem;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .upload-prompt .icon {
+            width: 64px;
+            height: 64px;
+            background: var(--bg-tertiary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 1.5rem;
+            border: 2px dashed var(--border-color);
+        }
+
+        .upload-prompt h2 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 0.35rem;
+        }
+
+        .upload-prompt p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .upload-prompt .upload-formats {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.75rem;
+            margin-bottom: 0;
+        }
+
+        .sidebar {
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 60px);
+        }
+
+        .panel {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 0.6rem;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-header .icon {
+            width: 22px;
+            height: 22px;
+            background: var(--bg-tertiary);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+        }
+
+        .panel-header h3 {
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            margin-left: auto;
+            padding: 0.15rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 500;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .status-badge.active {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--success);
+        }
+
+        .status-badge.calibrating {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--info);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .measurement-display {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .measurement-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .measurement-row:last-child {
+            border-bottom: none;
+        }
+
+        .measurement-label {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .measurement-value {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--accent-secondary);
+        }
+
+        .measurement-value.calibrated {
+            color: var(--success);
+            font-size: 0.85rem;
+        }
+
+        /* Lines List */
+        .lines-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            max-height: 160px;
+            overflow-y: auto;
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .line-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.25rem 0.4rem;
+            background: var(--bg-tertiary);
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .line-item:first-child {
+            border-radius: 4px 4px 0 0;
+        }
+
+        .line-item:last-child {
+            border-radius: 0 0 4px 4px;
+        }
+
+        .line-item:only-child {
+            border-radius: 4px;
+        }
+
+        .line-item:hover {
+            background: var(--border-color);
+        }
+
+        .line-item.selected {
+            background: rgba(240, 136, 62, 0.15);
+        }
+
+        .line-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .line-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .line-name {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .line-distance {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-primary);
+        }
+
+        .line-delete {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+            font-size: 0.75rem;
+            opacity: 0;
+        }
+
+        .line-item:hover .line-delete {
+            opacity: 1;
+        }
+
+        .line-delete:hover {
+            background: rgba(248, 81, 73, 0.2);
+            color: var(--danger);
+        }
+
+        .no-lines {
+            text-align: center;
+            padding: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .calibration-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .form-group label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.35rem;
+        }
+
+        .form-input {
+            flex: 1;
+            padding: 0.35rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--info);
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.15);
+        }
+
+        .form-select {
+            padding: 0.35rem 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+
+        .form-select:focus {
+            outline: none;
+            border-color: var(--info);
+        }
+
+        .calibration-steps {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .calibration-steps .step {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            padding: 0.2rem 0;
+        }
+
+        .calibration-steps .step-num {
+            width: 16px;
+            height: 16px;
+            background: var(--info);
+            color: var(--bg-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .calibration-steps.active .step {
+            color: var(--text-muted);
+        }
+
+        .calibration-steps.active .step.current {
+            color: var(--info);
+            font-weight: 500;
+        }
+
+        .calibration-steps.active .step.current .step-num {
+            background: var(--info);
+            animation: pulse 1.5s infinite;
+        }
+
+        .calibration-steps.done {
+            background: rgba(63, 185, 80, 0.1);
+        }
+
+        .calibration-steps.done .step-num {
+            background: var(--success);
+        }
+
+        .instructions {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }
+
+        .instructions ol {
+            margin-left: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .instructions li {
+            margin-bottom: 0.2rem;
+        }
+
+        .instructions li::marker {
+            color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .page-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .page-nav button {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 0.65rem;
+        }
+
+        .page-nav button:hover:not(:disabled) {
+            background: var(--border-color);
+        }
+
+        .page-nav button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 0.2rem;
+            align-items: center;
+        }
+
+        .zoom-controls button {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.15s;
+        }
+
+        .zoom-controls button:hover {
+            background: var(--border-color);
+        }
+
+        .zoom-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            min-width: 36px;
+            text-align: center;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.4rem;
+        }
+
+        .btn-row .btn {
+            flex: 1;
+            justify-content: center;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .btn-row .btn:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .selected-line-details {
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .selected-line-header {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-bottom: 0.35rem;
+        }
+
+        .selected-line-header .line-color {
+            width: 8px;
+            height: 8px;
+        }
+
+        .selected-line-header span {
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="toolbar">
+                <input type="file" id="fileInput" accept=".pdf,image/*">
+                <div class="upload-section">
+                    <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">📄 Upload</button>
+                    <div class="upload-hint">PDF, JPG, PNG, GIF, WebP</div>
+                </div>
+                <div class="divider"></div>
+                <div class="zoom-controls">
+                    <button onclick="changeZoom(-0.25)">−</button>
+                    <span class="zoom-value" id="zoomValue">100%</span>
+                    <button onclick="changeZoom(0.25)">+</button>
+                </div>
+                <div class="divider"></div>
+                <div class="page-nav hidden" id="pageNav">
+                    <button id="prevPage" onclick="changePage(-1)">◀</button>
+                    <span class="page-info"><span id="currentPage">1</span> / <span id="totalPages">1</span></span>
+                    <button id="nextPage" onclick="changePage(1)">▶</button>
+                </div>
+                <div class="divider"></div>
+                <div class="calibration-section">
+                    <div class="calibration-toolbar">
+                        <button class="btn btn-calibrate" id="calibrateBtn" onclick="toggleCalibrationMode()">
+                            🎯 Calibrate
+                        </button>
+                        <input type="number" class="toolbar-input" id="knownDistance" placeholder="100" step="any">
+                        <select class="toolbar-select" id="knownUnit">
+                            <option value="in">in</option>
+                            <option value="ft">ft</option>
+                            <option value="yd">yd</option>
+                            <option value="m">m</option>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="km">km</option>
+                            <option value="pt">pt</option>
+                        </select>
+                        <button class="btn btn-apply" onclick="applyCalibration()">Apply</button>
+                        <button class="btn btn-cancel hidden" id="calibrateCancelBtn" onclick="cancelCalibration()">Cancel</button>
+                        <span class="calibration-ratio" id="calibrationRatio"></span>
+                    </div>
+                    <div class="calibration-hint">To calibrate to known distance, click Calibrate → click 2 points → enter value → Apply (Ctrl to snap)</div>
+                </div>
+                <div class="divider"></div>
+                <button class="btn btn-download" id="downloadBtn" onclick="downloadAnnotatedPDF()" disabled>
+                    💾 Download Annotated PDF
+                </button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="pdf-area">
+                <div class="pdf-viewport" id="pdfViewport">
+                    <div class="upload-prompt" id="uploadPrompt">
+                        <div class="icon">📄</div>
+                        <h2>Upload PDF or Image</h2>
+                        <p>Click above or drag and drop</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                            Choose File
+                        </button>
+                        <p class="upload-formats">Supports PDF, JPG, PNG, GIF, WebP</p>
+                    </div>
+                    <div class="canvas-container hidden" id="canvasContainer">
+                        <canvas id="pdfCanvas"></canvas>
+                        <canvas id="overlayCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="icon">📏</div>
+                        <h3>Measurements</h3>
+                        <span class="status-badge" id="measureStatus">Ready</span>
+                    </div>
+                    <div class="lines-list" id="linesList">
+                        <div class="no-lines">
+                            Click 2 points on PDF to measure
+                        </div>
+                    </div>
+                    <div class="selected-line-details hidden" id="selectedLineDetails">
+                        <div class="selected-line-header">
+                            <div class="line-color" id="selectedLineColor"></div>
+                            <span id="selectedLineName">Line 1</span>
+                        </div>
+                        <div class="measurement-display">
+                            <div class="measurement-row">
+                                <span class="measurement-label">Points</span>
+                                <span class="measurement-value" id="valuePt">—</span>
+                            </div>
+                            <div class="measurement-row">
+                                <span class="measurement-label">mm</span>
+                                <span class="measurement-value" id="valueMm">—</span>
+                            </div>
+                            <div class="measurement-row">
+                                <span class="measurement-label">cm</span>
+                                <span class="measurement-value" id="valueCm">—</span>
+                            </div>
+                            <div class="measurement-row">
+                                <span class="measurement-label">Calibrated</span>
+                                <span class="measurement-value calibrated" id="valueCalibrated">—</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn" onclick="clearAllMeasurements()">Clear All</button>
+                    </div>
+                </div>
+
+                <div class="panel magnifier-panel hidden" id="magnifierPanel">
+                    <div class="panel-header">
+                        <div class="icon">🔍</div>
+                        <h3>Magnifier</h3>
+                    </div>
+                    <div class="magnifier" id="magnifier">
+                        <canvas id="magnifierCanvas"></canvas>
+                        <div class="magnifier-crosshair"></div>
+                    </div>
+                    <div class="page-dimensions" id="pageDimensions">
+                        <span class="dim-label">Page Size:</span>
+                        <span class="dim-value" id="dimPt">— × — pt</span>
+                        <span class="dim-value" id="dimMm">— × — mm</span>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <div class="icon">💡</div>
+                        <h3>Help</h3>
+                    </div>
+                    <div class="instructions">
+                        <ol>
+                            <li>Upload PDF or image</li>
+                            <li>Optional: Calibrate with known distance</li>
+                            <li>Click 2 points to measure</li>
+                            <li>Hold Ctrl to snap to 0°/45°/90°</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // Line colors palette
+        const LINE_COLORS = [
+            '#f0883e', '#3fb950', '#a371f7', '#f85149', '#58a6ff',
+            '#d29922', '#db61a2', '#79c0ff', '#7ee787', '#ffa657',
+        ];
+
+        // State
+        let pdfDoc = null;
+        let currentPageNum = 1;
+        let scale = 1.0;
+        let isCalibrationMode = false;
+        let calibrationPoints = [];
+        let calibrationApplied = false; // Track if calibration has been applied
+        let measurementsByPage = {}; // Store measurements per page: { pageNum: [...] }
+        let currentPoints = [];
+        let selectedLineId = null;
+        let nextLineId = 1;
+        let calibrationRatio = null;
+        let calibrationUnit = 'mm';
+        let mousePosition = null; // Track cursor for preview line
+        let loadedImage = null; // For image files
+        let isImageMode = false; // true for images, false for PDFs
+        let originalPdfBytes = null; // Store original PDF for download
+
+        // Helper to get/set measurements for current page
+        function getCurrentPageMeasurements() {
+            if (!measurementsByPage[currentPageNum]) {
+                measurementsByPage[currentPageNum] = [];
+            }
+            return measurementsByPage[currentPageNum];
+        }
+
+        // Canvas elements
+        const pdfCanvas = document.getElementById('pdfCanvas');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const pdfCtx = pdfCanvas.getContext('2d');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        
+        // Magnifier elements
+        const magnifier = document.getElementById('magnifier');
+        const magnifierPanel = document.getElementById('magnifierPanel');
+        const magnifierCanvas = document.getElementById('magnifierCanvas');
+        const magnifierCtx = magnifierCanvas.getContext('2d');
+        const MAGNIFIER_SIZE = 180; // Size in CSS pixels
+        const MAGNIFIER_ZOOM = 3;
+        magnifierCanvas.width = MAGNIFIER_SIZE * MAGNIFIER_ZOOM;
+        magnifierCanvas.height = MAGNIFIER_SIZE * MAGNIFIER_ZOOM;
+        magnifierCanvas.style.width = '100%';
+        magnifierCanvas.style.height = '100%';
+
+        // File input handler
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
+        // Drag and drop
+        const pdfViewport = document.getElementById('pdfViewport');
+        pdfViewport.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            pdfViewport.style.borderColor = 'var(--accent-primary)';
+        });
+        pdfViewport.addEventListener('dragleave', () => {
+            pdfViewport.style.borderColor = '';
+        });
+        pdfViewport.addEventListener('drop', (e) => {
+            e.preventDefault();
+            pdfViewport.style.borderColor = '';
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        // Overlay canvas click handler
+        overlayCanvas.addEventListener('click', handleCanvasClick);
+        
+        // Mouse move handler for preview line and magnifier
+        overlayCanvas.addEventListener('mousemove', (e) => {
+            const rect = overlayCanvas.getBoundingClientRect();
+            const canvasX = e.clientX - rect.left;
+            const canvasY = e.clientY - rect.top;
+            
+            // Store in document coordinates (scale 1.0)
+            let pos = {
+                x: canvasX / scale,
+                y: canvasY / scale
+            };
+            
+            // Snap to angle if Ctrl is held and we have a first point
+            if (e.ctrlKey || e.metaKey) {
+                const firstPoint = isCalibrationMode ? calibrationPoints[0] : currentPoints[0];
+                if (firstPoint) {
+                    pos = snapToAngle(firstPoint, pos);
+                }
+            }
+            
+            mousePosition = pos;
+            
+            // Update magnifier position and content
+            updateMagnifier(e.clientX, e.clientY, canvasX, canvasY);
+            
+            // Redraw to show crosshair or preview line
+            redrawOverlay();
+        });
+        
+        overlayCanvas.addEventListener('mouseleave', () => {
+            mousePosition = null;
+            redrawOverlay();
+        });
+        
+        overlayCanvas.addEventListener('mousedown', () => {
+            magnifier.classList.add('clicking');
+        });
+        
+        overlayCanvas.addEventListener('mouseup', () => {
+            magnifier.classList.remove('clicking');
+        });
+        
+        function updateMagnifier(screenX, screenY, canvasX, canvasY) {
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Calculate source area (in device pixels)
+            const sourceSize = MAGNIFIER_SIZE / MAGNIFIER_ZOOM;
+            const sourceX = (canvasX * dpr) - (sourceSize * dpr / 2);
+            const sourceY = (canvasY * dpr) - (sourceSize * dpr / 2);
+            
+            // Clear and draw magnified area
+            magnifierCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
+            
+            // Draw PDF content
+            magnifierCtx.drawImage(
+                pdfCanvas,
+                sourceX, sourceY,
+                sourceSize * dpr, sourceSize * dpr,
+                0, 0,
+                magnifierCanvas.width, magnifierCanvas.height
+            );
+            
+            // Draw overlay content on top
+            magnifierCtx.drawImage(
+                overlayCanvas,
+                sourceX, sourceY,
+                sourceSize * dpr, sourceSize * dpr,
+                0, 0,
+                magnifierCanvas.width, magnifierCanvas.height
+            );
+        }
+
+        async function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            if (file.type === 'application/pdf') {
+                loadPDF(file);
+            } else if (file.type.startsWith('image/')) {
+                loadImage(file);
+            }
+        }
+
+        async function loadPDF(file) {
+            isImageMode = false;
+            loadedImage = null;
+            
+            const arrayBuffer = await file.arrayBuffer();
+            originalPdfBytes = new Uint8Array(arrayBuffer); // Store for download
+            pdfDoc = await pdfjsLib.getDocument(arrayBuffer.slice(0)).promise;
+            
+            document.getElementById('uploadPrompt').classList.add('hidden');
+            document.getElementById('canvasContainer').classList.remove('hidden');
+            document.getElementById('pageNav').classList.remove('hidden');
+            document.getElementById('totalPages').textContent = pdfDoc.numPages;
+            document.getElementById('downloadBtn').disabled = false;
+            magnifierPanel.classList.remove('hidden');
+            
+            currentPageNum = 1;
+            clearEverything(); // Clear all when loading new file
+            await renderPage(currentPageNum);
+        }
+
+        function loadImage(file) {
+            isImageMode = true;
+            pdfDoc = null;
+            originalPdfBytes = null;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    loadedImage = img;
+                    
+                    document.getElementById('uploadPrompt').classList.add('hidden');
+                    document.getElementById('canvasContainer').classList.remove('hidden');
+                    document.getElementById('pageNav').classList.add('hidden'); // No pages for images
+                    document.getElementById('downloadBtn').disabled = true; // Can't download images with annotations yet
+                    magnifierPanel.classList.remove('hidden');
+                    
+                    currentPageNum = 1; // Images are always page 1
+                    clearEverything(); // Clear all when loading new file
+                    renderImage();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderImage() {
+            if (!loadedImage) return;
+            
+            const dpr = window.devicePixelRatio || 1;
+            const width = loadedImage.width * scale;
+            const height = loadedImage.height * scale;
+            
+            // Set canvas size accounting for device pixel ratio
+            pdfCanvas.width = width * dpr;
+            pdfCanvas.height = height * dpr;
+            overlayCanvas.width = width * dpr;
+            overlayCanvas.height = height * dpr;
+            
+            // Set CSS display size
+            pdfCanvas.style.width = width + 'px';
+            pdfCanvas.style.height = height + 'px';
+            overlayCanvas.style.width = width + 'px';
+            overlayCanvas.style.height = height + 'px';
+            
+            // Scale context to match DPR
+            pdfCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            
+            pdfCtx.drawImage(loadedImage, 0, 0, width, height);
+            
+            // Update page dimensions (original image size in pixels/points)
+            updatePageDimensions(loadedImage.width, loadedImage.height);
+            
+            redrawOverlay();
+        }
+
+        async function renderPage(pageNum) {
+            const page = await pdfDoc.getPage(pageNum);
+            const dpr = window.devicePixelRatio || 1;
+            const viewport = page.getViewport({ scale });
+            const scaledViewport = page.getViewport({ scale: scale * dpr });
+
+            // Set canvas size to high-res dimensions
+            pdfCanvas.width = scaledViewport.width;
+            pdfCanvas.height = scaledViewport.height;
+            overlayCanvas.width = scaledViewport.width;
+            overlayCanvas.height = scaledViewport.height;
+            
+            // Set CSS display size to logical dimensions
+            pdfCanvas.style.width = viewport.width + 'px';
+            pdfCanvas.style.height = viewport.height + 'px';
+            overlayCanvas.style.width = viewport.width + 'px';
+            overlayCanvas.style.height = viewport.height + 'px';
+
+            // Scale overlay context to match DPR for sharp drawing
+            overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            await page.render({
+                canvasContext: pdfCtx,
+                viewport: scaledViewport
+            }).promise;
+
+            document.getElementById('currentPage').textContent = pageNum;
+            document.getElementById('prevPage').disabled = pageNum <= 1;
+            document.getElementById('nextPage').disabled = pageNum >= pdfDoc.numPages;
+
+            // Update page dimensions (at scale 1.0)
+            const originalViewport = page.getViewport({ scale: 1.0 });
+            updatePageDimensions(originalViewport.width, originalViewport.height);
+
+            redrawOverlay();
+        }
+
+        function changePage(delta) {
+            const newPage = currentPageNum + delta;
+            if (newPage >= 1 && newPage <= pdfDoc.numPages) {
+                currentPageNum = newPage;
+                currentPoints = []; // Clear any in-progress measurement
+                selectedLineId = null;
+                renderPage(currentPageNum);
+                updateLinesList();
+                updateSelectedLineDisplay();
+                updateMeasureStatus();
+            }
+        }
+
+        function changeZoom(delta) {
+            scale = Math.max(0.25, Math.min(4, scale + delta));
+            document.getElementById('zoomValue').textContent = Math.round(scale * 100) + '%';
+            if (isImageMode && loadedImage) {
+                renderImage();
+            } else if (pdfDoc) {
+                renderPage(currentPageNum);
+            }
+        }
+
+        function getNextColor() {
+            return LINE_COLORS[getCurrentPageMeasurements().length % LINE_COLORS.length];
+        }
+
+        function handleCanvasClick(e) {
+            const rect = overlayCanvas.getBoundingClientRect();
+            // Store points in document coordinates (scale 1.0)
+            let x = (e.clientX - rect.left) / scale;
+            let y = (e.clientY - rect.top) / scale;
+            
+            // Snap to angle if Ctrl is held and we have a first point
+            if (e.ctrlKey || e.metaKey) {
+                const firstPoint = isCalibrationMode ? calibrationPoints[0] : currentPoints[0];
+                if (firstPoint) {
+                    const snapped = snapToAngle(firstPoint, { x, y });
+                    x = snapped.x;
+                    y = snapped.y;
+                }
+            }
+
+            if (isCalibrationMode) {
+                if (calibrationPoints.length < 2) {
+                    calibrationPoints.push({ x, y });
+                    // Update button to show point count
+                    if (calibrationPoints.length === 2) {
+                        document.getElementById('calibrateBtn').textContent = '✓ Points set';
+                    } else {
+                        document.getElementById('calibrateBtn').textContent = `⏹ ${calibrationPoints.length}/2 points`;
+                    }
+                } else {
+                    // 2 points already set, show error
+                    showCalibrationError('Enter the known distance and click Apply to finish calibration');
+                }
+            } else if (calibrationPoints.length === 2 && !calibrationApplied) {
+                // Calibration points set but not applied yet
+                showCalibrationError('Please finish calibration first (enter distance and click Apply)');
+                return;
+            } else {
+                currentPoints.push({ x, y });
+                
+                if (currentPoints.length === 2) {
+                    const measurements = getCurrentPageMeasurements();
+                    const newMeasurement = {
+                        id: nextLineId++,
+                        points: [...currentPoints],
+                        color: getNextColor()
+                    };
+                    measurements.push(newMeasurement);
+                    selectedLineId = newMeasurement.id;
+                    currentPoints = [];
+                    updateLinesList();
+                    updateSelectedLineDisplay();
+                }
+                
+                updateMeasureStatus();
+            }
+
+            redrawOverlay();
+        }
+
+        function redrawOverlay() {
+            const dpr = window.devicePixelRatio || 1;
+            // Reset transform to clear the full canvas
+            overlayCtx.setTransform(1, 0, 0, 1, 0, 0);
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            // Set transform for high-DPI drawing
+            overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // Draw calibration line (or preview if only 1 point)
+            if (calibrationPoints.length > 0) {
+                if (calibrationPoints.length === 1 && mousePosition) {
+                    // Draw preview line to cursor
+                    drawPointsAndLine([calibrationPoints[0], mousePosition], '#f85149', 'Calibration', null, true);
+                } else {
+                    drawPointsAndLine(calibrationPoints, '#f85149', 'Calibration', null);
+                }
+            }
+
+            // Draw all completed measurements for current page
+            getCurrentPageMeasurements().forEach((measurement, index) => {
+                const isSelected = measurement.id === selectedLineId;
+                drawPointsAndLine(measurement.points, measurement.color, `Line ${index + 1}`, isSelected);
+            });
+
+            // Draw current measurement in progress (or preview if only 1 point)
+            if (currentPoints.length > 0) {
+                if (currentPoints.length === 1 && mousePosition) {
+                    // Draw preview line to cursor
+                    drawPointsAndLine([currentPoints[0], mousePosition], getNextColor(), 'Current', false, true);
+                } else {
+                    drawPointsAndLine(currentPoints, getNextColor(), 'Current', false, true);
+                }
+            }
+            
+            // Draw crosshair at cursor position when no points clicked yet
+            if (mousePosition && currentPoints.length === 0 && calibrationPoints.length === 0) {
+                drawCursorCrosshair(mousePosition);
+            }
+        }
+        
+        function drawCursorCrosshair(pos) {
+            const x = pos.x * scale;
+            const y = pos.y * scale;
+            const size = 12;
+            const color = isCalibrationMode ? '#f85149' : getNextColor();
+            
+            overlayCtx.strokeStyle = color;
+            overlayCtx.lineWidth = 1.5;
+            overlayCtx.globalAlpha = 0.8;
+            
+            // Vertical line
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(x, y - size);
+            overlayCtx.lineTo(x, y + size);
+            overlayCtx.stroke();
+            
+            // Horizontal line
+            overlayCtx.beginPath();
+            overlayCtx.moveTo(x - size, y);
+            overlayCtx.lineTo(x + size, y);
+            overlayCtx.stroke();
+            
+            overlayCtx.globalAlpha = 1;
+        }
+
+        function drawPointsAndLine(points, color, label, isSelected, isIncomplete = false) {
+            const isCalibration = label === 'Calibration';
+            const opacity = isSelected === false && !isCalibration && label !== 'Current' ? 0.6 : 1;
+            
+            // Convert document coordinates to canvas coordinates
+            const canvasPoints = points.map(p => ({ x: p.x * scale, y: p.y * scale }));
+            
+            canvasPoints.forEach((point, i) => {
+                overlayCtx.globalAlpha = opacity;
+                
+                if (isCalibration) {
+                    // Calibration: + with circle around it
+                    const crossSize = 6;
+                    const circleRadius = 10;
+                    
+                    overlayCtx.globalAlpha = 0.6;
+                    
+                    // Draw circle
+                    overlayCtx.beginPath();
+                    overlayCtx.arc(point.x, point.y, circleRadius, 0, Math.PI * 2);
+                    overlayCtx.strokeStyle = color;
+                    overlayCtx.lineWidth = 2;
+                    overlayCtx.stroke();
+                    
+                    // Draw + inside
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(point.x, point.y - crossSize);
+                    overlayCtx.lineTo(point.x, point.y + crossSize);
+                    overlayCtx.stroke();
+                    
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(point.x - crossSize, point.y);
+                    overlayCtx.lineTo(point.x + crossSize, point.y);
+                    overlayCtx.stroke();
+                    
+                    overlayCtx.globalAlpha = 1;
+                } else {
+                    // Measurement: + markers
+                    const size = isSelected ? 8 : 6;
+                    
+                    overlayCtx.strokeStyle = color;
+                    overlayCtx.lineWidth = isSelected ? 2 : 1.5;
+                    overlayCtx.lineCap = 'round';
+                    overlayCtx.globalAlpha = opacity * 0.6;
+                    
+                    // Draw + shape (vertical line)
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(point.x, point.y - size);
+                    overlayCtx.lineTo(point.x, point.y + size);
+                    overlayCtx.stroke();
+                    
+                    // Draw + shape (horizontal line)
+                    overlayCtx.beginPath();
+                    overlayCtx.moveTo(point.x - size, point.y);
+                    overlayCtx.lineTo(point.x + size, point.y);
+                    overlayCtx.stroke();
+                    
+                    overlayCtx.globalAlpha = opacity;
+                }
+
+                overlayCtx.globalAlpha = 1;
+            });
+
+            if (canvasPoints.length === 2) {
+                const [cp1, cp2] = canvasPoints; // Canvas coordinates for drawing
+                const [p1, p2] = points; // Document coordinates for calculations
+                
+                overlayCtx.globalAlpha = opacity;
+
+                // Main line
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(cp1.x, cp1.y);
+                overlayCtx.lineTo(cp2.x, cp2.y);
+                overlayCtx.strokeStyle = color;
+                overlayCtx.lineWidth = isCalibration ? 2 : (isSelected ? 2 : 1.5);
+                if (isCalibration) {
+                    overlayCtx.setLineDash([3, 3]); // Tighter dash for calibration
+                } else {
+                    overlayCtx.setLineDash([6, 3]);
+                }
+                overlayCtx.stroke();
+                overlayCtx.setLineDash([]);
+
+
+                // Calculate distance in document coordinates (scale-independent)
+                const distance = calculatePixelDistance(p1, p2);
+                const midX = (cp1.x + cp2.x) / 2;
+                const midY = (cp1.y + cp2.y) / 2;
+
+                let displayText = '';
+                if (isCalibration) {
+                    displayText = `⚙ ${distance.toFixed(1)} pt`;
+                } else {
+                    // Distance is already in document points
+                    const ptDist = distance;
+                    const mmDist = ptDist * 0.352778;
+                    if (calibrationRatio) {
+                        displayText = `${(distance / calibrationRatio).toFixed(2)} ${calibrationUnit}`;
+                    } else {
+                        displayText = `${mmDist.toFixed(2)} mm`;
+                    }
+                }
+
+                // Always draw labels at full opacity for readability
+                overlayCtx.globalAlpha = 1;
+                
+                overlayCtx.font = `bold ${isSelected ? 12 : 11}px JetBrains Mono`;
+                const textWidth = overlayCtx.measureText(displayText).width;
+                
+                // Use line color as background
+                overlayCtx.fillStyle = color;
+                overlayCtx.globalAlpha = 0.9;
+                overlayCtx.roundRect(midX - textWidth/2 - 6, midY - 11, textWidth + 12, 22, 4);
+                overlayCtx.fill();
+                overlayCtx.globalAlpha = 1;
+
+                overlayCtx.fillStyle = '#ffffff';
+                overlayCtx.textAlign = 'center';
+                overlayCtx.textBaseline = 'middle';
+                overlayCtx.fillText(displayText, midX, midY);
+                overlayCtx.textAlign = 'left';
+                overlayCtx.textBaseline = 'alphabetic';
+                
+                overlayCtx.globalAlpha = 1;
+            }
+        }
+
+        function snapToAngle(origin, point) {
+            const dx = point.x - origin.x;
+            const dy = point.y - origin.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance === 0) return point;
+            
+            // Calculate angle in degrees
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            
+            // Snap to nearest 45 degrees (0, 45, 90, 135, 180, -135, -90, -45)
+            const snapAngles = [0, 45, 90, 135, 180, -135, -90, -45];
+            let closestAngle = snapAngles[0];
+            let minDiff = Math.abs(angle - snapAngles[0]);
+            
+            for (const snapAngle of snapAngles) {
+                const diff = Math.abs(angle - snapAngle);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestAngle = snapAngle;
+                }
+            }
+            
+            // Convert back to radians and calculate snapped position
+            const snappedRad = closestAngle * (Math.PI / 180);
+            return {
+                x: origin.x + distance * Math.cos(snappedRad),
+                y: origin.y + distance * Math.sin(snappedRad)
+            };
+        }
+
+        function calculatePixelDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        }
+
+        function updatePageDimensions(widthPt, heightPt) {
+            // Convert pt to mm (1 pt = 0.352778 mm)
+            const widthMm = widthPt * 0.352778;
+            const heightMm = heightPt * 0.352778;
+            
+            document.getElementById('dimPt').textContent = `${widthPt.toFixed(1)} × ${heightPt.toFixed(1)} pt`;
+            document.getElementById('dimMm').textContent = `${widthMm.toFixed(1)} × ${heightMm.toFixed(1)} mm`;
+        }
+
+        function updateLinesList() {
+            const container = document.getElementById('linesList');
+            const measurements = getCurrentPageMeasurements();
+            
+            if (measurements.length === 0) {
+                container.innerHTML = '<div class="no-lines">Click 2 points to measure</div>';
+                return;
+            }
+
+            container.innerHTML = measurements.map((measurement, index) => {
+                // Distance in document coordinates (points)
+                const ptDist = calculatePixelDistance(measurement.points[0], measurement.points[1]);
+                let distanceText;
+                if (calibrationRatio) {
+                    distanceText = `${(ptDist / calibrationRatio).toFixed(2)} ${calibrationUnit}`;
+                } else {
+                    distanceText = `${(ptDist * 0.352778).toFixed(2)} mm`;
+                }
+                
+                const isSelected = measurement.id === selectedLineId;
+                
+                return `
+                    <div class="line-item ${isSelected ? 'selected' : ''}" onclick="selectLine(${measurement.id})">
+                        <div class="line-color" style="background: ${measurement.color}"></div>
+                        <div class="line-info">
+                            <span class="line-name">#${index + 1}</span>
+                            <span class="line-distance">${distanceText}</span>
+                        </div>
+                        <button class="line-delete" onclick="event.stopPropagation(); deleteLine(${measurement.id})">×</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectLine(id) {
+            selectedLineId = id;
+            updateLinesList();
+            updateSelectedLineDisplay();
+            redrawOverlay();
+        }
+
+        function updateSelectedLineDisplay() {
+            const detailsEl = document.getElementById('selectedLineDetails');
+            const measurements = getCurrentPageMeasurements();
+            
+            if (selectedLineId === null) {
+                detailsEl.classList.add('hidden');
+                return;
+            }
+
+            const measurement = measurements.find(m => m.id === selectedLineId);
+            if (!measurement) {
+                detailsEl.classList.add('hidden');
+                return;
+            }
+
+            detailsEl.classList.remove('hidden');
+            
+            const index = measurements.indexOf(measurement);
+            document.getElementById('selectedLineName').textContent = `Line ${index + 1}`;
+            document.getElementById('selectedLineColor').style.background = measurement.color;
+
+            // Distance already in document coordinates (points)
+            const ptDist = calculatePixelDistance(measurement.points[0], measurement.points[1]);
+            document.getElementById('valuePt').textContent = ptDist.toFixed(2) + ' pt';
+
+            const mmDist = ptDist * 0.352778;
+            document.getElementById('valueMm').textContent = mmDist.toFixed(2);
+
+            document.getElementById('valueCm').textContent = (mmDist / 10).toFixed(3);
+
+            if (calibrationRatio) {
+                document.getElementById('valueCalibrated').textContent = (ptDist / calibrationRatio).toFixed(2) + ' ' + calibrationUnit;
+            } else {
+                document.getElementById('valueCalibrated').textContent = '—';
+            }
+        }
+
+        function deleteLine(id) {
+            const measurements = getCurrentPageMeasurements();
+            const index = measurements.findIndex(m => m.id === id);
+            if (index !== -1) {
+                measurements.splice(index, 1);
+            }
+            if (selectedLineId === id) {
+                selectedLineId = measurements.length > 0 ? measurements[measurements.length - 1].id : null;
+            }
+            updateLinesList();
+            updateSelectedLineDisplay();
+            updateMeasureStatus();
+            redrawOverlay();
+        }
+
+        function clearSelectedLine() {
+            if (selectedLineId !== null) {
+                deleteLine(selectedLineId);
+            }
+        }
+
+        function clearAllMeasurements() {
+            measurementsByPage[currentPageNum] = [];
+            currentPoints = [];
+            selectedLineId = null;
+            updateLinesList();
+            updateSelectedLineDisplay();
+            updateMeasureStatus();
+            redrawOverlay();
+        }
+
+        function showCalibrationError(message) {
+            // Remove any existing error toast
+            const existing = document.querySelector('.error-toast');
+            if (existing) existing.remove();
+            
+            // Create and show error toast
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            // Highlight the calibration toolbar
+            const calibToolbar = document.querySelector('.calibration-toolbar');
+            if (calibToolbar) {
+                calibToolbar.classList.add('highlight-error');
+                setTimeout(() => calibToolbar.classList.remove('highlight-error'), 2000);
+            }
+            
+            // Remove toast after delay
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function clearEverything() {
+            measurementsByPage = {};
+            calibrationPoints = [];
+            calibrationApplied = false;
+            currentPoints = [];
+            selectedLineId = null;
+            nextLineId = 1;
+            calibrationRatio = null;
+            document.getElementById('calibrationRatio').textContent = '';
+            document.getElementById('calibrateBtn').textContent = '🎯 Calibrate';
+            document.getElementById('calibrateBtn').classList.remove('active');
+            isCalibrationMode = false;
+            updateLinesList();
+            updateSelectedLineDisplay();
+            updateMeasureStatus();
+            redrawOverlay();
+        }
+
+        function updateMeasureStatus() {
+            const status = document.getElementById('measureStatus');
+            const measurements = getCurrentPageMeasurements();
+            if (currentPoints.length === 1) {
+                status.textContent = 'Select P2';
+                status.className = 'status-badge calibrating';
+            } else if (measurements.length === 0) {
+                status.textContent = 'Ready';
+                status.className = 'status-badge';
+            } else {
+                status.textContent = `${measurements.length} line${measurements.length > 1 ? 's' : ''}`;
+                status.className = 'status-badge active';
+            }
+        }
+
+        function toggleCalibrationMode() {
+            isCalibrationMode = !isCalibrationMode;
+            const btn = document.getElementById('calibrateBtn');
+            const cancelBtn = document.getElementById('calibrateCancelBtn');
+
+            if (isCalibrationMode) {
+                btn.classList.add('active');
+                btn.textContent = '⏹ 0/2 points';
+                cancelBtn.classList.remove('hidden');
+                calibrationPoints = [];
+                calibrationApplied = false;
+            } else {
+                btn.classList.remove('active');
+                btn.textContent = calibrationRatio ? '🎯 Re-calibrate' : '🎯 Calibrate';
+                cancelBtn.classList.add('hidden');
+            }
+
+            redrawOverlay();
+        }
+
+        function cancelCalibration() {
+            isCalibrationMode = false;
+            calibrationPoints = [];
+            const btn = document.getElementById('calibrateBtn');
+            const cancelBtn = document.getElementById('calibrateCancelBtn');
+            btn.classList.remove('active');
+            btn.textContent = calibrationRatio ? '🎯 Re-calibrate' : '🎯 Calibrate';
+            cancelBtn.classList.add('hidden');
+            redrawOverlay();
+        }
+
+        function applyCalibration() {
+            const knownDist = parseFloat(document.getElementById('knownDistance').value);
+            if (isNaN(knownDist) || knownDist <= 0) {
+                alert('Enter a valid distance.');
+                return;
+            }
+
+            if (calibrationPoints.length !== 2) {
+                alert('Click Calibrate and select 2 points first.');
+                return;
+            }
+
+            // Distance already in document coordinates (points)
+            const ptDist = calculatePixelDistance(calibrationPoints[0], calibrationPoints[1]);
+            calibrationRatio = ptDist / knownDist;
+            calibrationUnit = document.getElementById('knownUnit').value;
+            calibrationApplied = true;
+
+            // Calculate pt per unit for display
+            const ptPerUnit = ptDist / knownDist;
+            document.getElementById('calibrationRatio').textContent = `${ptPerUnit.toFixed(2)} pt = 1 ${calibrationUnit}`;
+
+            isCalibrationMode = false;
+            const btn = document.getElementById('calibrateBtn');
+            const cancelBtn = document.getElementById('calibrateCancelBtn');
+            btn.classList.remove('active');
+            btn.textContent = '🎯 Re-calibrate';
+            cancelBtn.classList.add('hidden');
+
+            updateLinesList();
+            updateSelectedLineDisplay();
+            redrawOverlay();
+        }
+
+        async function downloadAnnotatedPDF() {
+            if (!originalPdfBytes || isImageMode) {
+                alert('Please load a PDF first.');
+                return;
+            }
+
+            try {
+                const { PDFDocument, rgb, StandardFonts } = PDFLib;
+                
+                // Load the original PDF
+                const pdfDocLib = await PDFDocument.load(originalPdfBytes);
+                const pages = pdfDocLib.getPages();
+                const font = await pdfDocLib.embedFont(StandardFonts.Helvetica);
+
+                // Draw annotations on each page
+                for (let pageNum = 1; pageNum <= pages.length; pageNum++) {
+                    const pageMeasurements = measurementsByPage[pageNum] || [];
+                    if (pageMeasurements.length === 0) continue;
+
+                    const page = pages[pageNum - 1];
+                    const { height } = page.getSize();
+
+                    pageMeasurements.forEach((measurement, index) => {
+                        const [p1, p2] = measurement.points;
+                        // PDF coordinates have origin at bottom-left, so flip Y
+                        const y1 = height - p1.y;
+                        const y2 = height - p2.y;
+
+                        // Parse color (hex to rgb)
+                        const hexColor = measurement.color;
+                        const r = parseInt(hexColor.slice(1, 3), 16) / 255;
+                        const g = parseInt(hexColor.slice(3, 5), 16) / 255;
+                        const b = parseInt(hexColor.slice(5, 7), 16) / 255;
+                        const color = rgb(r, g, b);
+
+                        // Draw line
+                        page.drawLine({
+                            start: { x: p1.x, y: y1 },
+                            end: { x: p2.x, y: y2 },
+                            thickness: 1.5,
+                            color: color,
+                            dashArray: [4, 2],
+                        });
+
+                        // Draw + markers at endpoints
+                        const markerSize = 6;
+                        // Point 1: vertical line
+                        page.drawLine({
+                            start: { x: p1.x, y: y1 - markerSize },
+                            end: { x: p1.x, y: y1 + markerSize },
+                            thickness: 1.5,
+                            color: color,
+                            opacity: 0.6,
+                        });
+                        // Point 1: horizontal line
+                        page.drawLine({
+                            start: { x: p1.x - markerSize, y: y1 },
+                            end: { x: p1.x + markerSize, y: y1 },
+                            thickness: 1.5,
+                            color: color,
+                            opacity: 0.6,
+                        });
+                        // Point 2: vertical line
+                        page.drawLine({
+                            start: { x: p2.x, y: y2 - markerSize },
+                            end: { x: p2.x, y: y2 + markerSize },
+                            thickness: 1.5,
+                            color: color,
+                            opacity: 0.6,
+                        });
+                        // Point 2: horizontal line
+                        page.drawLine({
+                            start: { x: p2.x - markerSize, y: y2 },
+                            end: { x: p2.x + markerSize, y: y2 },
+                            thickness: 1.5,
+                            color: color,
+                            opacity: 0.6,
+                        });
+
+                        // Calculate distance text
+                        const ptDist = calculatePixelDistance(p1, p2);
+                        let distanceText;
+                        if (calibrationRatio) {
+                            distanceText = `${(ptDist / calibrationRatio).toFixed(2)} ${calibrationUnit}`;
+                        } else {
+                            distanceText = `${(ptDist * 0.352778).toFixed(2)} mm`;
+                        }
+
+                        // Draw label background and text
+                        const midX = (p1.x + p2.x) / 2;
+                        const midY = (y1 + y2) / 2;
+                        const textWidth = font.widthOfTextAtSize(distanceText, 9);
+                        
+                        // Background rectangle with line color
+                        page.drawRectangle({
+                            x: midX - textWidth / 2 - 6,
+                            y: midY - 7,
+                            width: textWidth + 12,
+                            height: 16,
+                            color: color,
+                            opacity: 0.9,
+                            borderRadius: 3,
+                        });
+
+                        // Text (white on colored background)
+                        page.drawText(distanceText, {
+                            x: midX - textWidth / 2,
+                            y: midY - 3,
+                            size: 9,
+                            font: font,
+                            color: rgb(1, 1, 1),
+                        });
+                    });
+                }
+
+                // Save and download
+                const pdfBytes = await pdfDocLib.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'measured-document.pdf';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error creating annotated PDF:', error);
+                alert('Error creating PDF. See console for details.');
+            }
+        }
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.beginPath();
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                this.closePath();
+                return this;
+            };
+        }
+    </script>
+</body>
+</html>

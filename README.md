@@ -2,6 +2,10 @@
 
 A web-based tool for measuring distances on PDF documents with calibration support.
 
+## Demo
+
+Try it online: https://apitemplate.io/pdf-tools/pdf-measuring-tool/
+
 ## Features
 
 - **PDF Upload**: Upload PDFs via button click or drag-and-drop
